@@ -221,8 +221,9 @@ def collect_all_items(selected_states=None, selected_sites=None, progress_callba
             success_count += 1
         
         for item in result['items']:
-            text_fields = ['name', 'description', 'borrowerName', 'branchName', 'city', 
-                          'areaTown', 'serviceProvider', 'contactDetails', 'notice', 'url']
+            text_fields = ['name', 'description', 'borrowerName', 'branchName', 'city',
+                          'areaTown', 'serviceProvider', 'contactDetails', 'notice',
+                          'url', 'pdfLinks']
             for field in text_fields:
                 if field in item and isinstance(item[field], str):
                     item[field] = sanitize_text_for_excel(item[field])
@@ -333,8 +334,9 @@ def collect_new_items(selected_states=None, selected_sites=None, progress_callba
             success_count += 1
         
         for item in result['items']:
-            text_fields = ['name', 'description', 'borrowerName', 'branchName', 'city', 
-                          'areaTown', 'serviceProvider', 'contactDetails', 'notice', 'url']
+            text_fields = ['name', 'description', 'borrowerName', 'branchName', 'city',
+                          'areaTown', 'serviceProvider', 'contactDetails', 'notice',
+                          'url', 'pdfLinks']
             for field in text_fields:
                 if field in item and isinstance(item[field], str):
                     item[field] = sanitize_text_for_excel(item[field])
@@ -402,7 +404,7 @@ def get_excel_headers(items):
         "contactDetails", "description", "address", "note", "borrowerName",
         "publishingDate", "inspectionDate", "applicationSubmissionDate",
         "auctionStartDate", "auctionEndTime", "auctionType", "listingId",
-        "images", "notice", "source", "url", "fingerprint",
+        "images", "pdfLinks", "notice", "source", "url", "fingerprint",
     ]
     for header in preferred:
         headers[header] = None

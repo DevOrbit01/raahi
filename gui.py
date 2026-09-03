@@ -503,7 +503,9 @@ class ScraperGUI:
             if self.download_images_var.get():
                 self.update_status("Downloading images for selected properties...")
                 images_root = os.path.join(output_folder, "images")
+                documents_root = os.path.join(output_folder, "documents")
                 os.makedirs(images_root, exist_ok=True)
+                os.makedirs(documents_root, exist_ok=True)
                 
                 for item in selected_items:
                     listing_id = str(item.get("listingId", "") or item.get("fingerprint", "unknown"))
@@ -532,8 +534,28 @@ class ScraperGUI:
                                 f.write(resp.content)
                         except Exception:
                             continue
+
+                    pdfs_value = item.get("pdfLinks", "") or ""
+                    pdf_urls = [u.strip() for u in pdfs_value.split(",") if u.strip()]
+                    if not pdf_urls:
+                        continue
+                    docs_dir = os.path.join(documents_root, listing_id)
+                    os.makedirs(docs_dir, exist_ok=True)
+                    for idx, url in enumerate(pdf_urls, start=1):
+                        try:
+                            resp = requests.get(url, timeout=30)
+                            if resp.status_code != 200:
+                                continue
+                            name_part = url.split("/")[-1].split("?")[0]
+                            ext = ".pdf" if "." not in name_part else "." + name_part.split(".")[-1]
+                            file_name = f"document_{idx}{ext}"
+                            file_path = os.path.join(docs_dir, file_name)
+                            with open(file_path, "wb") as f:
+                                f.write(resp.content)
+                        except Exception:
+                            continue
                 
-                msg = f"Download completed.\n\nExcel file: {self.output_file}\nImages folder: {images_root}"
+                msg = f"Download completed.\n\nExcel file: {self.output_file}\nImages folder: {images_root}\nDocuments folder: {documents_root}"
             else:
                 self.update_status("Skipping image download as per selection.")
                 msg = f"Download completed.\n\nExcel file: {self.output_file}\n(Images were skipped)"

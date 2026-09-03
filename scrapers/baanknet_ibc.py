@@ -147,6 +147,7 @@ def _map_asset(item, state):
         "auctionType": "IBC",
         "listingId": asset_id,
         "images": _images(source),
+        "pdfLinks": _documents(source),
         "notice": auction_url,
         "source": "baanknet_ibc",
         "url": detail_url,

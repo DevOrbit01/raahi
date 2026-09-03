@@ -2,11 +2,13 @@
 
 block_cipher = None
 
+from PyInstaller.utils.hooks import collect_data_files
+
 a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=collect_data_files('customtkinter'),
     hiddenimports=[
         'customtkinter',
         'PIL',
