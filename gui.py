@@ -32,6 +32,53 @@ class ScraperGUI:
         
     def setup_ui(self):
         """Setup the user interface"""
+
+        # Keep primary actions outside the scroll area so they are always visible,
+        # including on smaller Windows screens or high display scaling.
+        control_frame = ctk.CTkFrame(self.root)
+        control_frame.pack(pady=(10, 5), padx=20, fill="x")
+
+        self.start_btn = ctk.CTkButton(
+            control_frame,
+            text="Start Scraping",
+            command=self.start_scraping,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            height=44,
+            fg_color="green",
+            hover_color="darkgreen"
+        )
+        self.start_btn.pack(side="left", padx=5, expand=True, fill="x")
+
+        self.download_selected_btn = ctk.CTkButton(
+            control_frame,
+            text="Download Selected",
+            command=self.download_selected,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            height=44,
+            state="disabled"
+        )
+        self.download_selected_btn.pack(side="left", padx=5, expand=True, fill="x")
+
+        self.open_file_btn = ctk.CTkButton(
+            control_frame,
+            text="Open Output File",
+            command=self.open_output_file,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            height=44,
+            state="disabled"
+        )
+        self.open_file_btn.pack(side="left", padx=5, expand=True, fill="x")
+
+        clear_db_btn = ctk.CTkButton(
+            control_frame,
+            text="Clear Database",
+            command=self.clear_database,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            height=44,
+            fg_color="red",
+            hover_color="darkred"
+        )
+        clear_db_btn.pack(side="left", padx=5, expand=True, fill="x")
         
         # Main scrollable content frame
         content_frame = ctk.CTkScrollableFrame(self.root)
@@ -253,52 +300,6 @@ class ScraperGUI:
             font=ctk.CTkFont(size=12)
         )
         download_images_cb.pack(pady=10, anchor="w", padx=10)
-        
-        # Control buttons
-        control_frame = ctk.CTkFrame(self.root)
-        control_frame.pack(pady=10, padx=20, fill="x")
-        
-        self.start_btn = ctk.CTkButton(
-            control_frame,
-            text="▶ Start Scraping",
-            command=self.start_scraping,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            height=50,
-            fg_color="green",
-            hover_color="darkgreen"
-        )
-        self.start_btn.pack(side="left", padx=5, expand=True, fill="x")
-        
-        self.download_selected_btn = ctk.CTkButton(
-            control_frame,
-            text="⬇ Download Selected",
-            command=self.download_selected,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            height=50,
-            state="disabled"
-        )
-        self.download_selected_btn.pack(side="left", padx=5, expand=True, fill="x")
-        
-        self.open_file_btn = ctk.CTkButton(
-            control_frame,
-            text="📂 Open Output File",
-            command=self.open_output_file,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            height=50,
-            state="disabled"
-        )
-        self.open_file_btn.pack(side="left", padx=5, expand=True, fill="x")
-        
-        clear_db_btn = ctk.CTkButton(
-            control_frame,
-            text="🗑️ Clear Database",
-            command=self.clear_database,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            height=50,
-            fg_color="red",
-            hover_color="darkred"
-        )
-        clear_db_btn.pack(side="left", padx=5, expand=True, fill="x")
         
     def select_all_sites(self):
         """Select all sites"""
