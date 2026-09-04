@@ -100,6 +100,7 @@ class ScraperGUI:
         sites = [
             ('BaankNet', 'baanknet'),
             ('BaankNet IBC', 'baanknet_ibc'),
+            ('BaankNet Vehicle', 'baanknet_vehicle'),
             ('BaankNet Property', 'baanknet_property'),
             ('BankEAuctions', 'bankauctions'),
             ('BankAuction.in', 'bankauction')

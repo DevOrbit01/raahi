@@ -6,8 +6,8 @@ import os
 from collections import OrderedDict
 from openpyxl import Workbook
 from config import STATES
-from scrapers import baanknet, baanknet_ibc, bankauctions, bankauction, baanknet_property
-from fingerprint import generate_fingerprint
+from scrapers import baanknet, baanknet_ibc, baanknet_vehicle, bankauctions, bankauction, baanknet_property
+from fingerprint import generate_fingerprint, generate_legacy_fingerprint
 from seen_db import seen_db
 import re
 
@@ -157,6 +157,7 @@ def collect_all_items(selected_states=None, selected_sites=None, progress_callba
     all_scrapers = {
         'baanknet': (baanknet.scrape, 'BaankNet'),
         'baanknet_ibc': (baanknet_ibc.scrape, 'BaankNet IBC'),
+        'baanknet_vehicle': (baanknet_vehicle.scrape, 'BaankNet Vehicle'),
         'baanknet_property': (baanknet_property.scrape, 'BaankNet Property'),
         'bankauctions': (bankauctions.scrape, 'BankEAuctions'),
         'bankauction': (bankauction.scrape, 'BankAuction.in')
@@ -266,9 +267,11 @@ def collect_all_items(selected_states=None, selected_sites=None, progress_callba
 
 
 def collect_new_items(selected_states=None, selected_sites=None, progress_callback=None, status_callback=None):
+    seen_db.reload()
     all_scrapers = {
         'baanknet': (baanknet.scrape, 'BaankNet'),
         'baanknet_ibc': (baanknet_ibc.scrape, 'BaankNet IBC'),
+        'baanknet_vehicle': (baanknet_vehicle.scrape, 'BaankNet Vehicle'),
         'baanknet_property': (baanknet_property.scrape, 'BaankNet Property'),
         'bankauctions': (bankauctions.scrape, 'BankEAuctions'),
         'bankauction': (bankauction.scrape, 'BankAuction.in')
@@ -361,8 +364,9 @@ def collect_new_items(selected_states=None, selected_sites=None, progress_callba
                 continue
             
             fp = generate_fingerprint(item)
+            legacy_fp = generate_legacy_fingerprint(item)
             
-            if not seen_db.exists(fp):
+            if not seen_db.exists(fp) and not seen_db.exists(legacy_fp):
                 item['fingerprint'] = fp
                 new_items.append(item)
             else:

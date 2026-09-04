@@ -1,10 +1,25 @@
 """Simple file-based database to track seen properties"""
 import json
 import os
+import sys
+
+
+APP_NAME = "RaahiScraper"
+
+
+def _default_db_file():
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser(r"~\AppData\Local")
+    elif sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    return os.path.join(base, APP_NAME, "seen_properties.json")
 
 
 class SeenDatabase:
-    def __init__(self, db_file='seen_properties.json'):
+    def __init__(self, db_file=None):
+        db_file = db_file or _default_db_file()
         if not os.path.isabs(db_file):
             db_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), db_file)
         self.db_file = db_file
@@ -23,10 +38,15 @@ class SeenDatabase:
     def _save_to_disk(self):
         """Save seen fingerprints to file"""
         try:
+            os.makedirs(os.path.dirname(self.db_file), exist_ok=True)
             with open(self.db_file, 'w') as f:
                 json.dump(list(self.seen), f)
         except Exception as e:
             print(f"Error saving seen database: {e}")
+
+    def reload(self):
+        """Reload fingerprints from disk."""
+        self.seen = self._load()
     
     def exists(self, fingerprint):
         """Check if fingerprint exists in database"""

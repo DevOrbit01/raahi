@@ -19,6 +19,7 @@ a = Analysis(
         'urllib3',
         'scrapers.baanknet',
         'scrapers.baanknet_ibc',
+        'scrapers.baanknet_vehicle',
         'scrapers.baanknet_property',
         'scrapers.bankauctions',
         'scrapers.bankauction',

@@ -80,8 +80,11 @@ def _images(source):
 def _document_links(documents):
     urls = []
     for document in documents or []:
-        if isinstance(document, dict) and document.get("url"):
-            urls.append(document["url"])
+        if not isinstance(document, dict):
+            continue
+        url = document.get("url") or document.get("fileUrl")
+        if url:
+            urls.append(url)
     return ",".join(urls)
 
 
@@ -133,6 +136,7 @@ def _map_property(item, state, source_name):
     if not full_address:
         full_address = _join_non_empty(source.get("locality"), source.get("cityName"), source.get("districtName"), source.get("stateName"), source.get("pincode"))
     pdf_links = _document_links(auction_details.get("auctionDocuments"))
+    possession_type = auction_details.get("propertyPossessionType") or source.get("propertyPossessionType") or source.get("possessionType", "")
 
     return {
         "newListingId": "",
@@ -151,7 +155,7 @@ def _map_property(item, state, source_name):
         "contactDetails": contact,
         "description": auction_details.get("description") or _join_non_empty(source.get("borrowerAddress"), source.get("branchAddress")),
         "address": full_address,
-        "note": pdf_links,
+        "note": possession_type,
         "borrowerName": auction_details.get("borrowerName") or source.get("borrowerName", ""),
         "publishingDate": _format_datetime(source.get("createdOn")),
         "inspectionDate": _format_datetime(auction_details.get("inspectionStart") or source.get("inspectionStart")),
