@@ -66,7 +66,8 @@ def chrome_data_dir():
 
 
 SETUP_MESSAGE = (
-    "Open your usual Google Chrome (144+), go to chrome://inspect/#remote-debugging, "
+    "Use Browser Connector Setup to connect your normal Chrome (96+) with the Raahi extension. "
+    "Alternatively, open Google Chrome (144+), go to chrome://inspect/#remote-debugging, "
     "and enable remote debugging. Then retry Check eAuctionsIndia Browser Access "
     "and approve Chrome's connection prompt. Raahi will use a tab in that browser."
 )
@@ -86,9 +87,10 @@ def chrome_endpoint():
         raise RuntimeError(SETUP_MESSAGE) from exc
 
 
-def open_chrome_setup():
+def open_chrome_setup(url='chrome://inspect/#remote-debugging'):
     """Open a setup tab in ordinary Chrome, without a new profile/debug flags."""
-    url = "chrome://inspect/#remote-debugging"
+    if url not in ('chrome://inspect/#remote-debugging', 'chrome://extensions/'):
+        raise ValueError('Unsupported Chrome setup page')
     if sys.platform == "darwin":
         subprocess.Popen(["open", "-a", "Google Chrome", url])
     elif os.name == "nt":
@@ -290,8 +292,9 @@ def fetch_chrome_attachment(url):
         'www.eauctionsindia.com', 'eauctionsindia.com', 'www.eauctionsindia.org', 'eauctionsindia.org'
     ) or not parsed.path.startswith('/storage/'):
         raise ValueError('Chrome attachment access is limited to eAuctionsIndia storage URLs.')
+    from .extension_bridge import connected_bridge
     with _session_lock:
-        session = _session
+        session = connected_bridge() or _session
     if session is None:
         raise RuntimeError('Connect to Chrome before downloading protected eAuctionsIndia images.')
     session.invoke('ensure')
@@ -311,13 +314,36 @@ def _stop_session():
 atexit.register(_stop_session)
 
 
+def browser_ready():
+    """Check prerequisites before queuing scrape tasks or opening auction pages."""
+    from .extension_bridge import start_bridge, connected_bridge
+    try:
+        start_bridge()
+    except RuntimeError:
+        pass  # The direct Chrome connector may still be usable.
+    if connected_bridge() is not None:
+        return True
+    try:
+        chrome_endpoint()
+        return True
+    except RuntimeError:
+        return False
+
+
 @contextmanager
 def desktop_browser(playwright, start_url):
     """Yield a tab in the existing Chrome; retain the approved app connection."""
     global _session
-    # Validate before starting a background connection attempt.
-    chrome_endpoint()
+    from .extension_bridge import connected_bridge
+    extension = connected_bridge()
+    if extension is None:
+        # Validate before starting a background connection attempt.
+        chrome_endpoint()
     with _profile_lock(browser_profile()):
+        if extension is not None:
+            extension.invoke('ensure')
+            yield ChromePage(extension)
+            return
         with _session_lock:
             if _session is None or _session.closed:
                 _session = _ChromeSession()

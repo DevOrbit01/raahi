@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Raahi Browser Connector",
+  "version": "1.0.0",
+  "minimum_chrome_version": "96",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw8c/l8iyzjNrNS9/DzJCoYIzG/Ssd1crPWsJY1fOmf/eYCvqhQtfMNIg83KrXRK+xcGbpCwqkd2hqKgGKmYx3OA+hrJzCFdqOw1avdgT3nG+/bRri2/9zAymfb9HVVn450v8UCNr3ogDGfQJlmNxnKl7w6TEaqexxEpsIQtbY4S/GAywNsmLRTVNQ1sA2gfekI5tDo298KmSQUgWDgDXc+uXUq/pAFTZ0KXWfcVGJ69Hl9eTVMLDB3iWv7Byj1KLJcaCN64tUuT/I+ayy2Dynoa7wbgKVIHGkYH5nE+4o8Jc4vzz+HpXRg8Rahhhv17ZR5eZiDXHv8Xvg/cj85kHzwIDAQAB",
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:49381/*",
+    "https://eauctionsindia.com/*",
+    "https://www.eauctionsindia.com/*"
+  ],
+  "action": {
+    "default_title": "Connect Raahi"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

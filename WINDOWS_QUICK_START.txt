@@ -1,17 +1,29 @@
 RAAHI PROPERTY SCRAPER — WINDOWS TEST BUILD
 
 Target: Windows 10/11 x64. Python does not need to be installed.
-Use your normal Windows account and Google Chrome Stable 144 or newer.
+Use your normal Windows account and Google Chrome 96+ with extensions permitted.
 This is an unsigned test build. Client browser verification testing is pending.
 
 START
 1. Extract the ZIP to a folder and open RaahiScraper.exe.
 2. Open your usual Google Chrome and select your normal profile.
-3. In Chrome, open chrome://inspect/#remote-debugging and enable remote debugging.
-4. In Raahi, click Check eAuctionsIndia Browser Access. Allow Chrome's connection
-   prompt. Complete any Cloudflare human verification yourself in the auction tab.
-5. Keep Chrome and that tab open. You can minimize Chrome. Raahi reuses the same
-   connection and cookies. Reconnecting may require Chrome's permission again.
+3. In Raahi, click Browser Connector Setup. In chrome://extensions, enable
+   Developer mode, click Load unpacked, and choose the extension folder shown
+   by Raahi. This enables this locally supplied extension in your normal profile.
+4. Click the Raahi extension icon, paste the pairing code copied from Raahi,
+   and click Connect. The pairing code is remembered on this computer/account.
+5. Click Check eAuctionsIndia Browser Access. Complete any Cloudflare human
+   verification yourself in the auction tab.
+6. Keep Chrome, its connector tab and auction tab open. You can minimize Chrome.
+   Raahi reuses the website session without exporting cookies. After restarting
+   Raahi, the open connector tab reconnects automatically to the same app pairing.
+
+ALTERNATIVE: Chrome 144+ supports direct connection without the extension.
+Open chrome://inspect/#remote-debugging and enable remote debugging; click
+Check eAuctionsIndia Browser Access in Raahi and allow Chrome's prompt.
+Chrome 136-143 does not support this direct connection to its normal profile.
+Very old Chrome versions and managed profiles that forbid both connection
+methods are unsupported. Update Chrome or ask your browser administrator.
 
 EXPORT
 Select a source and states, start scraping, select properties, then Download
@@ -35,10 +47,12 @@ WINDOWS ACCEPTANCE TEST
 
 Verification can expire or be invalidated by the website. Raahi waits for manual
 verification and resumes; unpublished photos cannot be provided by the scraper.
-Disconnect Chrome releases Raahi's connection and leaves Chrome open.
+Disconnect Chrome releases the direct connection and leaves Chrome open.
+For extension mode, click Pause in the connector tab, or close that tab.
 
 BUILD EVIDENCE
 windows-packaging-check.json records automated frozen-app validation on Windows:
-GUI initialization, bundled Playwright driver, file locking and Excel roundtrip.
+GUI initialization, bundled Playwright driver and extension, file locking and
+Excel roundtrip.
 build-info.json and SHA256SUMS.txt identify the source and executable.
 These automated checks do not replace the live client Chrome acceptance test.

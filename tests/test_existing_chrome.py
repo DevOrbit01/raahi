@@ -34,7 +34,7 @@ class ExistingChromeTests(unittest.TestCase):
 
     def test_missing_permission_never_launches_another_browser(self):
         with TemporaryDirectory() as folder, patch.dict('os.environ', {'EAUCTIONSINDIA_CHROME_DATA_DIR': folder}), patch.object(browser.subprocess, 'Popen') as launch:
-            with self.assertRaisesRegex(RuntimeError, 'your usual Google Chrome'):
+            with self.assertRaisesRegex(RuntimeError, 'Browser Connector Setup'):
                 with browser.desktop_browser(None, 'https://www.eauctionsindia.com'):
                     pass
             launch.assert_not_called()

@@ -8,7 +8,7 @@ a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
-    datas=collect_data_files('customtkinter'),
+    datas=collect_data_files('customtkinter') + [('browser_extension', 'browser_extension')],
     hiddenimports=[
         'customtkinter',
         'PIL',
@@ -29,6 +29,7 @@ a = Analysis(
         'scrapers.baanknet_property',
         'scrapers.eauctionsindia',
         'scrapers.local_browser',
+        'scrapers.extension_bridge',
         'scrapers.scrape_progress',
         'sqlite3',
         'scrapers.bankauctions',
