@@ -4,3 +4,5 @@ openpyxl
 customtkinter
 Pillow
 pyinstaller
+cloudscraper
+playwright>=1.60

@@ -1,0 +1,44 @@
+RAAHI PROPERTY SCRAPER — WINDOWS TEST BUILD
+
+Target: Windows 10/11 x64. Python does not need to be installed.
+Use your normal Windows account and Google Chrome Stable 144 or newer.
+This is an unsigned test build. Client browser verification testing is pending.
+
+START
+1. Extract the ZIP to a folder and open RaahiScraper.exe.
+2. Open your usual Google Chrome and select your normal profile.
+3. In Chrome, open chrome://inspect/#remote-debugging and enable remote debugging.
+4. In Raahi, click Check eAuctionsIndia Browser Access. Allow Chrome's connection
+   prompt. Complete any Cloudflare human verification yourself in the auction tab.
+5. Keep Chrome and that tab open. You can minimize Chrome. Raahi reuses the same
+   connection and cookies. Reconnecting may require Chrome's permission again.
+
+EXPORT
+Select a source and states, start scraping, select properties, then Download
+Selected. Scraping collects image/document URLs only. With Download Images and
+Notices with Excel checked, Excel is saved first, then files are saved locally.
+Default export folder: %LOCALAPPDATA%\RaahiScraper\Exports
+You can choose another writable output folder in the app.
+Photos are in propertyImageUrls; notice images are in noticeImageUrls.
+Some auctions publish only notices and have no actual property photos.
+
+WINDOWS ACCEPTANCE TEST
+1. Select only eAuctionsIndia and Tripura + Sikkim as a small first sample.
+2. Confirm normal Chrome is used and no separate browser/profile is created.
+3. Confirm property details, notice URLs and available photo URLs appear in Excel.
+4. Confirm files download only at export, and image/notice files open correctly.
+5. Run another scrape with Chrome and Raahi still open; the auction tab is reused.
+6. Restart Raahi while leaving Chrome and its auction tab open. Allow reconnection
+   if Chrome asks, and confirm the same auction tab is reused.
+7. Test BaankNet and the other required source/state selections.
+8. Check that errors/failed attachments produce a warning and permit retry.
+
+Verification can expire or be invalidated by the website. Raahi waits for manual
+verification and resumes; unpublished photos cannot be provided by the scraper.
+Disconnect Chrome releases Raahi's connection and leaves Chrome open.
+
+BUILD EVIDENCE
+windows-packaging-check.json records automated frozen-app validation on Windows:
+GUI initialization, bundled Playwright driver, file locking and Excel roundtrip.
+build-info.json and SHA256SUMS.txt identify the source and executable.
+These automated checks do not replace the live client Chrome acceptance test.

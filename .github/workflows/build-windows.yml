@@ -1,0 +1,46 @@
+name: Build Windows desktop app
+
+on:
+  push:
+    branches: ['build/windows-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Build and validate Windows executable
+        shell: pwsh
+        run: ./packaging/build-windows.ps1
+      - name: Upload Windows app and test evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: RaahiScraper-Windows-x64
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload diagnostic report if validation fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Windows-build-diagnostics
+          path: |
+            release/windows-packaging-check.json
+            build/build/warn-build.txt
+          if-no-files-found: ignore
+          retention-days: 7

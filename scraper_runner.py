@@ -6,9 +6,10 @@ import os
 from collections import OrderedDict
 from openpyxl import Workbook
 from config import STATES
-from scrapers import baanknet, baanknet_ibc, baanknet_vehicle, bankauctions, bankauction, baanknet_property
+from scrapers import baanknet, baanknet_ibc, baanknet_vehicle, bankauctions, bankauction, baanknet_property, eauctionsindia
 from fingerprint import generate_fingerprint, generate_legacy_fingerprint
 from seen_db import seen_db
+from app_paths import default_output_folder
 import re
 
 
@@ -126,13 +127,13 @@ def clean_date_to_standard_format(date_str):
         return None
 
 
-def run_single_scraper(scraper_func, state, scraper_name):
+def run_single_scraper(scraper_func, state, scraper_name, status_callback=None):
     """Run a single scraper for a state"""
     try:
         print(f"[{scraper_name}] Starting scrape for {state}...")
         start_time = time.time()
         
-        items = scraper_func(state)
+        items = scraper_func(state, progress_callback=status_callback)
         
         duration = time.time() - start_time
         print(f"[{scraper_name}] ✓ Completed {state} in {duration:.2f}s - Found {len(items)} items")
@@ -144,12 +145,15 @@ def run_single_scraper(scraper_func, state, scraper_name):
             'error': None
         }
     except Exception as e:
-        print(f"[{scraper_name}] ✗ Error for {state}: {e}")
+        label = "Skipped" if getattr(e, 'skipped', False) else "Error"
+        print(f"[{scraper_name}] {label} for {state}: {e}")
         return {
             'state': state,
             'scraperName': scraper_name,
-            'items': [],
-            'error': str(e)
+            'items': getattr(e, 'items', []),
+            'error': None if getattr(e, 'skipped', False) else str(e),
+            'skipped': bool(getattr(e, 'skipped', False)),
+            'warning': str(e) if getattr(e, 'skipped', False) else None,
         }
 
 
@@ -159,6 +163,7 @@ def collect_all_items(selected_states=None, selected_sites=None, progress_callba
         'baanknet_ibc': (baanknet_ibc.scrape, 'BaankNet IBC'),
         'baanknet_vehicle': (baanknet_vehicle.scrape, 'BaankNet Vehicle'),
         'baanknet_property': (baanknet_property.scrape, 'BaankNet Property'),
+        'eauctionsindia': (eauctionsindia.scrape, 'eAuctionsIndia'),
         'bankauctions': (bankauctions.scrape, 'BankEAuctions'),
         'bankauction': (bankauction.scrape, 'BankAuction.in')
     }
@@ -192,7 +197,7 @@ def collect_all_items(selected_states=None, selected_sites=None, progress_callba
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = {
-            executor.submit(run_single_scraper, func, state, name): (func, state, name)
+            executor.submit(run_single_scraper, func, state, name, status_callback): (func, state, name)
             for func, state, name in tasks
         }
         
@@ -214,9 +219,12 @@ def collect_all_items(selected_states=None, selected_sites=None, progress_callba
     success_count = 0
     fail_count = 0
     invalid_dates_removed = 0
+    skipped_count = 0
     
     for result in results:
-        if result['error']:
+        if result.get('skipped'):
+            skipped_count += 1
+        elif result['error']:
             fail_count += 1
         else:
             success_count += 1
@@ -255,6 +263,7 @@ def collect_all_items(selected_states=None, selected_sites=None, progress_callba
    Total time: {total_duration:.2f}s
    ✓ Successful: {success_count}/{len(tasks)}
    ✗ Failed: {fail_count}/{len(tasks)}
+   ⏭ Unavailable catalogues: {skipped_count}/{len(tasks)}
    📦 Properties collected: {len(all_items)}
    ❌ Invalid dates removed: {invalid_dates_removed}
 """
@@ -266,13 +275,14 @@ def collect_all_items(selected_states=None, selected_sites=None, progress_callba
     return all_items
 
 
-def collect_new_items(selected_states=None, selected_sites=None, progress_callback=None, status_callback=None):
+def collect_new_items(selected_states=None, selected_sites=None, progress_callback=None, status_callback=None, run_details=None):
     seen_db.reload()
     all_scrapers = {
         'baanknet': (baanknet.scrape, 'BaankNet'),
         'baanknet_ibc': (baanknet_ibc.scrape, 'BaankNet IBC'),
         'baanknet_vehicle': (baanknet_vehicle.scrape, 'BaankNet Vehicle'),
         'baanknet_property': (baanknet_property.scrape, 'BaankNet Property'),
+        'eauctionsindia': (eauctionsindia.scrape, 'eAuctionsIndia'),
         'bankauctions': (bankauctions.scrape, 'BankEAuctions'),
         'bankauction': (bankauction.scrape, 'BankAuction.in')
     }
@@ -306,7 +316,7 @@ def collect_new_items(selected_states=None, selected_sites=None, progress_callba
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = {
-            executor.submit(run_single_scraper, func, state, name): (func, state, name)
+            executor.submit(run_single_scraper, func, state, name, status_callback): (func, state, name)
             for func, state, name in tasks
         }
         
@@ -329,9 +339,12 @@ def collect_new_items(selected_states=None, selected_sites=None, progress_callba
     fail_count = 0
     duplicates = 0
     invalid_dates_removed = 0
+    skipped_count = 0
     
     for result in results:
-        if result['error']:
+        if result.get('skipped'):
+            skipped_count += 1
+        elif result['error']:
             fail_count += 1
         else:
             success_count += 1
@@ -371,12 +384,32 @@ def collect_new_items(selected_states=None, selected_sites=None, progress_callba
                 new_items.append(item)
             else:
                 duplicates += 1
+
+    if fail_count == len(tasks) and not new_items:
+        details = "; ".join(
+            f"{result['scraperName']} ({result['state']}): {result['error']}"
+            for result in results
+        )
+        raise RuntimeError(f"All scraper tasks failed. {details}")
+
+    if run_details is not None:
+        run_details.update({
+            'failed_tasks': fail_count,
+            'skipped_tasks': skipped_count,
+            'total_tasks': len(tasks),
+            'errors': [
+                f"{result['scraperName']} ({result['state']}): {result['error']}"
+                for result in results if result['error']
+            ],
+            'warnings': [result['warning'] for result in results if result.get('warning')],
+        })
     
     summary = f"""
 📊 Scraping Summary:
    Total time: {total_duration:.2f}s
    ✓ Successful: {success_count}/{len(tasks)}
    ✗ Failed: {fail_count}/{len(tasks)}
+   ⏭ Unavailable catalogues: {skipped_count}/{len(tasks)}
    📦 New items: {len(new_items)}
    🔄 Duplicates filtered: {duplicates}
    ❌ Invalid dates removed: {invalid_dates_removed}
@@ -408,7 +441,9 @@ def get_excel_headers(items):
         "contactDetails", "description", "address", "note", "borrowerName",
         "publishingDate", "inspectionDate", "applicationSubmissionDate",
         "auctionStartDate", "auctionEndTime", "auctionType", "listingId",
-        "images", "pdfLinks", "notice", "source", "url", "fingerprint",
+        "images", "propertyImageUrls", "noticeImageUrls", "imageKinds",
+        "pdfLinks", "notice", "assetCategory", "serviceProvider",
+        "source", "url", "fingerprint",
     ]
     for header in preferred:
         headers[header] = None
@@ -420,7 +455,7 @@ def get_excel_headers(items):
 
 def save_items_to_excel(items, output_folder=None, status_callback=None):
     if not output_folder:
-        output_folder = "output"
+        output_folder = default_output_folder()
     os.makedirs(output_folder, exist_ok=True)
     
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')

@@ -5,5 +5,6 @@ from . import baanknet_property
 from . import baanknet_vehicle
 from . import bankauctions
 from . import bankauction
+from . import eauctionsindia
 
-__all__ = ['baanknet', 'baanknet_ibc', 'baanknet_property', 'baanknet_vehicle', 'bankauctions', 'bankauction']
+__all__ = ['baanknet', 'baanknet_ibc', 'baanknet_property', 'baanknet_vehicle', 'bankauctions', 'bankauction', 'eauctionsindia']
