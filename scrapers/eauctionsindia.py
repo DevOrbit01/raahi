@@ -3,12 +3,13 @@ import re
 import os
 import time
 import threading
+from contextlib import nullcontext
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
 from config import STATES
-from scrapers.local_browser import desktop_browser, browser_profile
+from scrapers.local_browser import desktop_browser, browser_profile, browser_backend
 from scrapers.scrape_progress import ScrapeProgress
 
 try:
@@ -377,19 +378,34 @@ def _read_page(page, url, callback=None, expected="listing"):
             response = page.goto(url, wait_until="domcontentloaded", timeout=60000)
             deadline = time.monotonic() + verification_timeout
             announced = False
+            blocked_since = None
+            visible_opened = False
             while True:
                 html = page.content()
                 soup = BeautifulSoup(html, "html.parser")
                 if _looks_blocked(html):
+                    if blocked_since is None:
+                        blocked_since = deadline - verification_timeout
                     if not announced:
-                        _emit(callback, "Waiting for browser verification. If prompted, complete it in the open browser; scraping resumes automatically.")
-                        page.bring_to_front()
+                        if hasattr(page, 'show_for_verification') and getattr(page, 'headless', True):
+                            _emit(callback, "Website verification detected; waiting briefly for headless browser to finish it automatically.")
+                        else:
+                            _emit(callback, "Waiting for browser verification. If prompted, complete it in the open browser; scraping resumes automatically.")
+                            page.bring_to_front()
                         announced = True
+                    if hasattr(page, 'show_for_verification') and getattr(page, 'headless', True) and not visible_opened:
+                        grace = max(0, int(os.environ.get('EAUCTIONSINDIA_HEADLESS_CHALLENGE_GRACE', '15')))
+                        if time.monotonic() - blocked_since >= grace:
+                            _emit(callback, "Automatic verification did not finish; opening a visible auction browser for you.")
+                            page.show_for_verification(url)
+                            visible_opened = True
                     if time.monotonic() >= deadline:
-                        raise VerificationRequired("Browser verification is still required. Complete it in Raahi's auction tab in your Google Chrome, then retry. Saved progress is retained.")
+                        browser_name = "Raahi's auction browser" if browser_backend() == 'cloak' else "Raahi's auction tab in your Google Chrome"
+                        raise VerificationRequired(f"Browser verification is still required. Complete it in {browser_name}, then retry. Saved progress is retained.")
                     page.wait_for_timeout(1000)
                     continue
                 # Initial response may be 403 before the browser completes its challenge.
+                blocked_since = None
                 # A missing HTTP status must not bypass rendered-content checks.
                 status = response.status if response and response.status is not None else 200
                 if response and response.status is None:
@@ -459,7 +475,8 @@ def _validate_item(item, state):
 
 
 def _scrape_with_playwright(state, progress_callback=None):
-    if sync_playwright is None:
+    backend = browser_backend()
+    if backend == 'chrome' and sync_playwright is None:
         raise RuntimeError("Install project requirements; Playwright is required for eAuctionsIndia browser access.")
     first_urls = _listing_urls(state, 1)
     first_url = first_urls[0]
@@ -467,8 +484,11 @@ def _scrape_with_playwright(state, progress_callback=None):
     checkpoint = profile.parent / (profile.name + "-progress") / f"{_slug(state)}.sqlite3"
     progress = None
     try:
-        with sync_playwright() as playwright:
-            _emit(progress_callback, "Connecting to your existing Google Chrome. Approve the connection prompt in Chrome if it appears.")
+        with (sync_playwright() if backend == 'chrome' else nullcontext(None)) as playwright:
+            if backend == 'cloak':
+                _emit(progress_callback, "Starting local CloakBrowser headless. First use may download its browser binary; a visible window opens only if verification is needed.")
+            else:
+                _emit(progress_callback, "Connecting to your existing Google Chrome. Approve the connection prompt in Chrome if it appears.")
             with desktop_browser(playwright, first_url) as page:
                 progress = ScrapeProgress(checkpoint, state, first_url)
                 if not progress.resumed:
@@ -528,11 +548,15 @@ def _scrape_with_playwright(state, progress_callback=None):
 
 def check_access(progress_callback=None):
     """Verify browser access without changing scrape progress or the seen database."""
-    if sync_playwright is None:
+    backend = browser_backend()
+    if backend == 'chrome' and sync_playwright is None:
         raise RuntimeError("Install requirements before checking eAuctionsIndia access.")
-    with _browser_lock, sync_playwright() as playwright:
+    with _browser_lock, (sync_playwright() if backend == 'chrome' else nullcontext(None)) as playwright:
         url = _listing_urls("Delhi", 1)[0]
-        _emit(progress_callback, "Connecting to your existing Google Chrome. Approve the connection prompt in Chrome if it appears.")
+        if backend == 'cloak':
+            _emit(progress_callback, "Checking eAuctionsIndia in local CloakBrowser. First use may download its browser binary.")
+        else:
+            _emit(progress_callback, "Connecting to your existing Google Chrome. Approve the connection prompt in Chrome if it appears.")
         with desktop_browser(playwright, url) as page:
             html = _read_page(page, url, progress_callback)
             count = len(_extract_listing_links(BeautifulSoup(html, "html.parser")))

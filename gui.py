@@ -13,7 +13,7 @@ from config import STATES
 from scraper_runner import collect_new_items, mark_items_seen, save_items_to_excel
 from seen_db import seen_db
 from scrapers.eauctionsindia import check_access
-from scrapers.local_browser import open_chrome_setup, disconnect_chrome, fetch_chrome_attachment, browser_ready
+from scrapers.local_browser import open_chrome_setup, disconnect_chrome, fetch_chrome_attachment, browser_ready, browser_backend
 
 
 class ScraperGUI:
@@ -34,6 +34,7 @@ class ScraperGUI:
         self.scraped_items = []
         self.property_check_vars = []
         self.main_thread = threading.current_thread()
+        self.eauction_backend = browser_backend()
         
         self.setup_ui()
         
@@ -151,25 +152,31 @@ class ScraperGUI:
 
         eauction_frame = ctk.CTkFrame(site_frame)
         eauction_frame.pack(pady=(8, 10), padx=10, fill="x")
+        cloak_mode = self.eauction_backend == 'cloak'
         ctk.CTkLabel(
             eauction_frame,
-            text="eAuctionsIndia uses your normal Google Chrome. Enable its browser connection permission once.\n"
-                 "Complete any human verification in the auction tab; scraping then resumes.",
+            text=("eAuctionsIndia uses local CloakBrowser in headless mode. If the website requests human verification, "
+                  "Raahi opens a visible auction browser and resumes after you complete it."
+                  if cloak_mode else
+                  "eAuctionsIndia uses your normal Google Chrome. Enable its browser connection permission once.\n"
+                  "Complete any human verification in the auction tab; scraping then resumes."),
             font=ctk.CTkFont(size=12), wraplength=760, justify="left"
         ).pack(pady=8, padx=8, anchor="w")
-        ctk.CTkButton(
-            eauction_frame, text="Open Chrome Connection Settings",
-            command=self.open_chrome_connection_settings,
-        ).pack(pady=(0, 8), padx=8, anchor="w")
+        if not cloak_mode:
+            ctk.CTkButton(
+                eauction_frame, text="Open Chrome Connection Settings",
+                command=self.open_chrome_connection_settings,
+            ).pack(pady=(0, 8), padx=8, anchor="w")
         self.eauctions_access_btn = ctk.CTkButton(
             eauction_frame, text="Check eAuctionsIndia Browser Access",
             command=self.check_eauctions_access,
         )
         self.eauctions_access_btn.pack(pady=(0, 8), padx=8, anchor="w")
-        ctk.CTkButton(
-            eauction_frame, text="Disconnect Chrome",
-            command=self.disconnect_chrome_session,
-        ).pack(pady=(0, 8), padx=8, anchor="w")
+        if not cloak_mode:
+            ctk.CTkButton(
+                eauction_frame, text="Disconnect Chrome",
+                command=self.disconnect_chrome_session,
+            ).pack(pady=(0, 8), padx=8, anchor="w")
 
         # State selection
         state_frame = ctk.CTkFrame(content_frame)
@@ -450,6 +457,9 @@ class ScraperGUI:
         if self.is_scraping or self.is_checking_access or self.is_downloading:
             return
         if not browser_ready():
+            if self.eauction_backend == 'cloak':
+                messagebox.showerror("CloakBrowser setup", "The CloakBrowser wrapper is unavailable in this Raahi installation. Reinstall Raahi, then retry.")
+                return
             self.open_chrome_connection_settings()
             return
         self.is_checking_access = True
@@ -498,6 +508,10 @@ class ScraperGUI:
             return
 
         if 'eauctionsindia' in selected_sites and not browser_ready():
+            if self.eauction_backend == 'cloak':
+                self.update_status('The CloakBrowser wrapper is unavailable in this Raahi installation.')
+                messagebox.showerror('CloakBrowser setup', 'The CloakBrowser wrapper is unavailable. Reinstall Raahi, then retry.')
+                return
             self.update_status('Enable Chrome connection permission, then click Start Scraping again.')
             self.open_chrome_connection_settings()
             return
@@ -621,7 +635,8 @@ class ScraperGUI:
                 if source == 'eauctionsindia' and (
                     resp.status_code != 200 or 'text/html' in resp.headers.get('Content-Type', '').lower()
                 ):
-                    self.log(f"Retrying protected attachment through your Chrome session: {url}")
+                    browser_name = 'CloakBrowser' if getattr(self, 'eauction_backend', browser_backend()) == 'cloak' else 'Chrome'
+                    self.log(f"Retrying protected attachment through {browser_name}: {url}")
                     resp = fetch_chrome_attachment(url)
                 if resp.status_code != 200:
                     raise RuntimeError(f"HTTP {resp.status_code}")
@@ -758,7 +773,22 @@ def main():
         options = parser.parse_args()
         raise SystemExit(0 if run_packaging_check(options.report) else 1)
     if "--check-eauctionsindia" in sys.argv:
-        check_access()
+        import json
+        from pathlib import Path
+        result = {'passed': False}
+        try:
+            result['listing_links'] = check_access()
+            result['passed'] = True
+        except Exception as exc:
+            result['error'] = str(exc)
+        if '--report' in sys.argv:
+            report_index = sys.argv.index('--report')
+            if report_index + 1 < len(sys.argv):
+                report_path = Path(sys.argv[report_index + 1])
+                report_path.parent.mkdir(parents=True, exist_ok=True)
+                report_path.write_text(json.dumps(result, indent=2), encoding='utf-8')
+        if not result['passed']:
+            raise SystemExit(1)
         return
     app = ScraperGUI()
     app.run()

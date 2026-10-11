@@ -27,7 +27,12 @@ jobs:
       - name: Build and validate Windows executable
         shell: pwsh
         run: ./packaging/build-windows.ps1
+      - name: Test official CloakBrowser runtime and packaged auction access
+        shell: pwsh
+        timeout-minutes: 10
+        run: python packaging/windows-live-smoke.py
       - name: Upload Windows app and test evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: RaahiScraper-Windows-x64

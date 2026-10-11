@@ -1,4 +1,18 @@
-# eAuctionsIndia: existing Chrome session and image URLs
+# eAuctionsIndia: CloakBrowser Windows build and image URLs
+
+The new Windows executable defaults to a dedicated CloakBrowser profile. It
+starts headless, reuses that profile across runs, and opens a visible browser
+only if the website needs human verification. No Chrome extension or normal
+Chrome remote-debugging permission is needed. The browser binary is downloaded
+directly from CloakHQ on first use; it is not bundled in Raahi's ZIP or EXE.
+See `WINDOWS_QUICK_START.txt` for client setup and acceptance checks.
+
+The Chrome instructions below describe the explicit fallback mode used by
+older Windows builds and source checkouts. To select that mode, set
+`EAUCTIONSINDIA_BROWSER_BACKEND=chrome`. For local CloakBrowser source tests,
+set `EAUCTIONSINDIA_BROWSER_BACKEND=cloak`.
+
+## Existing Chrome fallback
 
 Raahi connects directly to your normal Google Chrome. No Chrome extension or
 pairing setup is required. The app accepts any browser version exposing a

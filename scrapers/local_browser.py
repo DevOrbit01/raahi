@@ -10,6 +10,7 @@ import atexit
 import base64
 from concurrent.futures import Future
 from contextlib import contextmanager
+from importlib.util import find_spec
 import os
 from pathlib import Path
 import queue
@@ -24,6 +25,14 @@ from app_paths import application_data_dir
 
 AUCTION_HOSTS = ('eauctionsindia.com', 'www.eauctionsindia.com')
 MANAGED_TAB_KEY = 'raahi.eauctionsindia.managed-tab.v1'
+
+
+def browser_backend():
+    # Packaged client builds use CloakBrowser; source runs retain the legacy
+    # Chrome mode unless explicitly switched while developing or testing.
+    default = 'cloak' if getattr(sys, 'frozen', False) else 'chrome'
+    value = os.environ.get('EAUCTIONSINDIA_BROWSER_BACKEND', default).lower()
+    return 'cloak' if value in ('cloak', 'cloakbrowser') else 'chrome'
 
 
 def _is_auction_page(page):
@@ -290,6 +299,8 @@ _session_lock = threading.Lock()
 
 def disconnect_chrome():
     """Release Raahi's connection; leave the user's Chrome and tabs open."""
+    if browser_backend() == 'cloak':
+        return  # CloakBrowser closes at the end of each check/scrape/export.
     with _session_lock:
         if _session is not None:
             _session.disconnect()
@@ -303,6 +314,9 @@ def fetch_chrome_attachment(url):
         'www.eauctionsindia.com', 'eauctionsindia.com', 'www.eauctionsindia.org', 'eauctionsindia.org'
     ) or not parsed.path.startswith('/storage/'):
         raise ValueError('Chrome attachment access is limited to eAuctionsIndia storage URLs.')
+    if browser_backend() == 'cloak':
+        from scrapers.cloak_browser import fetch_cloak_attachment
+        return fetch_cloak_attachment(url)
     with _session_lock:
         session = _session
     if session is None:
@@ -326,6 +340,10 @@ atexit.register(_stop_session)
 
 def browser_ready():
     """Check prerequisites before queuing scrape tasks or opening auction pages."""
+    if browser_backend() == 'cloak':
+        # The browser binary is intentionally not bundled in Raahi. CloakHQ's
+        # wrapper downloads it on first use from its official distribution.
+        return find_spec('cloakbrowser') is not None
     with _session_lock:
         session = _session
     if session is not None and not session.closed and session.invoke('connected'):
@@ -342,6 +360,11 @@ def desktop_browser(playwright, start_url):
     """Yield a tab in the existing Chrome; retain the approved app connection."""
     global _session
     with _profile_lock(browser_profile()):
+        if browser_backend() == 'cloak':
+            from scrapers.cloak_browser import cloak_desktop_browser
+            with cloak_desktop_browser(playwright, start_url) as page:
+                yield page
+            return
         with _session_lock:
             if _session is None or _session.closed:
                 chrome_endpoint()

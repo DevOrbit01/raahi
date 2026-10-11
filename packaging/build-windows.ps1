@@ -44,7 +44,9 @@ python -m pip freeze | Set-Content (Join-Path $output "dependencies.txt") -Encod
     executable_sha256 = $hash
     regression_test_suite_passed = $true
     automated_packaging_check_passed = $true
-    live_client_chrome_tested = $false
+    browser_backend = "cloak"
+    cloakbrowser_binary_bundled = $false
+    live_client_windows_tested = $false
     signed = $false
     built_at_utc = [DateTime]::UtcNow.ToString("o")
 } | ConvertTo-Json | Set-Content (Join-Path $output "build-info.json") -Encoding utf8

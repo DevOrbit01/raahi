@@ -1,51 +1,47 @@
-RAAHI PROPERTY SCRAPER — WINDOWS TEST BUILD, NO EXTENSION
+RAAHI PROPERTY SCRAPER — WINDOWS x64 TEST BUILD
 
-Windows 10/11 x64. Python and Chrome extensions do not need to be installed.
-Use your normal Windows account and Google Chrome.
-This is an unsigned test build. Live client browser verification is pending.
+Windows 10/11 x64. Python, a Chrome extension, and Chrome debugging permission
+are not needed for eAuctionsIndia. The app uses a dedicated CloakBrowser profile.
+This executable is unsigned. Its browser binary is not included in the ZIP.
 
-START
-1. Extract the ZIP and open RaahiScraper.exe.
-2. Select eAuctionsIndia and your states. Click Start Scraping.
-3. If the browser connection is missing, Raahi opens the connection settings
-   page in normal Chrome. Enable Allow remote debugging if the option exists.
-4. Click Check eAuctionsIndia Browser Access. Allow Chrome's connection prompt.
-5. Complete any Cloudflare human verification manually in the auction tab.
-6. Keep Chrome and that auction tab open. Raahi reuses the browser session across
-   states and later scrapes. Reconnection may need Chrome approval again.
+FIRST RUN
+1. Extract the entire ZIP, then run RaahiScraper.exe under your normal Windows
+   account. Allow the app to use the network.
+2. Select eAuctionsIndia and one small state (for example Tripura) first. Use
+   Deselect All for sites and states, then tick the ones you want.
+3. Click Check eAuctionsIndia Browser Access, then Start Scraping.
+4. On first use, CloakBrowser downloads its free browser build from CloakHQ to
+   your Windows user profile. This may take several minutes and hundreds of MB.
+   The app does not bundle, copy, or redistribute that proprietary binary.
+5. The scraper starts headless. If the website requires human verification and
+   automatic verification does not finish, Raahi opens its visible auction
+   browser. Complete the prompt there; Raahi resumes automatically.
 
-BROWSER COMPATIBILITY
-Raahi does not reject Chrome by its version number. Chrome must expose a
-compatible approved browser connection. The normal-profile permission UI was
-introduced in Chrome 144. If it is missing, update Chrome. Chrome 136-143 does
-not expose that UI and restricts remote debugging the default profile through
-command-line flags. Accepting a version number does not add this browser feature.
-Older Chrome with an already-exposed compatible CDP endpoint can be attempted;
-every Chrome version has not been tested. No extra browser/profile is launched.
+SUBSEQUENT RUNS
+Raahi reuses its persistent CloakBrowser profile and its valid site session.
+The browser window usually stays hidden. Cloudflare or the site can require
+verification again at any time; no browser can guarantee zero prompts.
 
-CONNECTION ERRORS
-Missing connection permission, invalid connection file, and unreadable Chrome
-files are reported separately. Run Chrome and Raahi under the same Windows
-account. Do not run one as a different user. If a connection becomes stale,
-restart Chrome, re-enable its browser connection permission and retry.
+EXCEL, PHOTOS, AND NOTICES
+Scraping stores property data and attachment URLs only. Select properties and
+click Download Selected. With Download Images and Notices with Excel checked,
+Raahi writes Excel first, then saves images/<auction ID>/ and
+documents/<auction ID>/ alongside it. The default output folder is:
+%LOCALAPPDATA%\RaahiScraper\Exports
 
-EXPORT
-Select returned properties, then click Download Selected. Scraping collects
-image/notice URLs only. With Download Images and Notices with Excel checked,
-Excel is saved first and images/notices are downloaded afterward.
-Default output: %LOCALAPPDATA%\RaahiScraper\Exports
-Photos: propertyImageUrls. Notice images: noticeImageUrls.
-Some auctions publish only notices; unpublished photos cannot be scraped.
-Failed attachments produce a warning and can be retried.
+The spreadsheet separates propertyImageUrls from noticeImageUrls. Some listings
+publish only a sale notice or PDF and no property photos. Failed downloads are
+reported and can be retried; properties with missing attachments are not marked
+downloaded.
 
-ACCEPTANCE TEST
-Start with Tripura and Sikkim, then Gujarat and other required selections.
-Confirm details/URLs in Excel, images/notices open, repeat scrapes reuse Chrome,
-and restart Raahi with the auction tab left open to test session reconnection.
-Website verification can expire or be invalidated and require another manual
-verification. These live Windows checks remain pending.
+CLIENT ACCEPTANCE
+After the test build starts, check Tripura and Sikkim first, then your intended
+larger states. Open the Excel rows, JPG/WebP property photos, sale-notice images
+and PDFs. Restart the app and repeat to check saved-session reuse. Live use on
+your client's Windows network and PC is still necessary before declaring the
+app production-ready.
 
 BUILD EVIDENCE
-windows-packaging-check.json: frozen GUI, Playwright driver, file lock,
-no-extension setup and Excel roundtrip.
+windows-packaging-check.json: frozen GUI, CloakBrowser wrapper, Playwright
+driver, file lock, no bundled browser binary, and Excel roundtrip.
 build-info.json and SHA256SUMS.txt identify the executable and source.

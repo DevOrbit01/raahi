@@ -91,6 +91,21 @@ class EAuctionsTests(unittest.TestCase):
         self.assertIn(1000, page.waits)
         self.assertTrue(any("verification" in message for message in messages))
 
+    def test_cloak_challenge_opens_visible_browser_once(self):
+        class ChallengePage(BrowserPage):
+            def __init__(self):
+                super().__init__(["<title>Just a moment...</title>", DETAIL_HTML], status=403)
+                self.verification_urls = []
+
+            def show_for_verification(self, url):
+                self.verification_urls.append(url)
+                return True
+
+        page = ChallengePage()
+        with patch.dict('os.environ', {'EAUCTIONSINDIA_BROWSER_BACKEND': 'cloak', 'EAUCTIONSINDIA_HEADLESS_CHALLENGE_GRACE': '0'}):
+            self.assertEqual(e._read_page(page, DETAIL_URL, expected='detail'), DETAIL_HTML)
+        self.assertEqual(page.verification_urls, [DETAIL_URL])
+
     def test_unknown_http_status_waits_for_dom_and_detects_404(self):
         page = BrowserPage(['<h1>Loading</h1>', DETAIL_HTML], status=None)
         self.assertEqual(e._read_page(page, DETAIL_URL, expected='detail'), DETAIL_HTML)

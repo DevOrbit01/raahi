@@ -6,3 +6,4 @@ Pillow
 pyinstaller
 cloudscraper
 playwright>=1.60
+cloakbrowser==0.6.1

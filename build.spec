@@ -2,14 +2,14 @@
 
 block_cipher = None
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
-    datas=collect_data_files('customtkinter'),
-    hiddenimports=[
+    datas=collect_data_files('customtkinter') + collect_data_files('cloakbrowser'),
+    hiddenimports=collect_submodules('cloakbrowser') + [
         'customtkinter',
         'PIL',
         'PIL._tkinter_finder',
