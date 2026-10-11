@@ -91,7 +91,7 @@ class EAuctionsTests(unittest.TestCase):
         self.assertIn(1000, page.waits)
         self.assertTrue(any("verification" in message for message in messages))
 
-    def test_extension_unknown_http_status_waits_for_dom_and_detects_404(self):
+    def test_unknown_http_status_waits_for_dom_and_detects_404(self):
         page = BrowserPage(['<h1>Loading</h1>', DETAIL_HTML], status=None)
         self.assertEqual(e._read_page(page, DETAIL_URL, expected='detail'), DETAIL_HTML)
         self.assertIn(500, page.waits)

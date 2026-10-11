@@ -12,9 +12,11 @@ if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }
 
 New-Item -ItemType Directory -Force $OutputDirectory | Out-Null
 $output = (Resolve-Path $OutputDirectory).Path
+# Remove the obsolete connector bundle from a previous build in this output.
+$obsoleteConnector = Join-Path $output "RaahiChromeExtension"
+if (Test-Path $obsoleteConnector) { Remove-Item $obsoleteConnector -Recurse -Force }
 Copy-Item dist/RaahiScraper.exe (Join-Path $output "RaahiScraper.exe") -Force
 Copy-Item WINDOWS_QUICK_START.txt (Join-Path $output "WINDOWS_QUICK_START.txt") -Force
-Copy-Item browser_extension (Join-Path $output "RaahiChromeExtension") -Recurse -Force
 $exe = Join-Path $output "RaahiScraper.exe"
 $report = Join-Path $output "windows-packaging-check.json"
 $arguments = @("--self-test", "--report", "`"$report`"")

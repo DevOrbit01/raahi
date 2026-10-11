@@ -1,58 +1,51 @@
-RAAHI PROPERTY SCRAPER — WINDOWS TEST BUILD
+RAAHI PROPERTY SCRAPER — WINDOWS TEST BUILD, NO EXTENSION
 
-Target: Windows 10/11 x64. Python does not need to be installed.
-Use your normal Windows account and Google Chrome 96+ with extensions permitted.
-This is an unsigned test build. Client browser verification testing is pending.
+Windows 10/11 x64. Python and Chrome extensions do not need to be installed.
+Use your normal Windows account and Google Chrome.
+This is an unsigned test build. Live client browser verification is pending.
 
 START
-1. Extract the ZIP to a folder and open RaahiScraper.exe.
-2. Open your usual Google Chrome and select your normal profile.
-3. In Raahi, click Browser Connector Setup. In chrome://extensions, enable
-   Developer mode, click Load unpacked, and choose the extension folder shown
-   by Raahi. This enables this locally supplied extension in your normal profile.
-4. Click the Raahi extension icon, paste the pairing code copied from Raahi,
-   and click Connect. The pairing code is remembered on this computer/account.
-5. Click Check eAuctionsIndia Browser Access. Complete any Cloudflare human
-   verification yourself in the auction tab.
-6. Keep Chrome, its connector tab and auction tab open. You can minimize Chrome.
-   Raahi reuses the website session without exporting cookies. After restarting
-   Raahi, the open connector tab reconnects automatically to the same app pairing.
+1. Extract the ZIP and open RaahiScraper.exe.
+2. Select eAuctionsIndia and your states. Click Start Scraping.
+3. If the browser connection is missing, Raahi opens the connection settings
+   page in normal Chrome. Enable Allow remote debugging if the option exists.
+4. Click Check eAuctionsIndia Browser Access. Allow Chrome's connection prompt.
+5. Complete any Cloudflare human verification manually in the auction tab.
+6. Keep Chrome and that auction tab open. Raahi reuses the browser session across
+   states and later scrapes. Reconnection may need Chrome approval again.
 
-ALTERNATIVE: Chrome 144+ supports direct connection without the extension.
-Open chrome://inspect/#remote-debugging and enable remote debugging; click
-Check eAuctionsIndia Browser Access in Raahi and allow Chrome's prompt.
-Chrome 136-143 does not support this direct connection to its normal profile.
-Very old Chrome versions and managed profiles that forbid both connection
-methods are unsupported. Update Chrome or ask your browser administrator.
+BROWSER COMPATIBILITY
+Raahi does not reject Chrome by its version number. Chrome must expose a
+compatible approved browser connection. The normal-profile permission UI was
+introduced in Chrome 144. If it is missing, update Chrome. Chrome 136-143 does
+not expose that UI and restricts remote debugging the default profile through
+command-line flags. Accepting a version number does not add this browser feature.
+Older Chrome with an already-exposed compatible CDP endpoint can be attempted;
+every Chrome version has not been tested. No extra browser/profile is launched.
+
+CONNECTION ERRORS
+Missing connection permission, invalid connection file, and unreadable Chrome
+files are reported separately. Run Chrome and Raahi under the same Windows
+account. Do not run one as a different user. If a connection becomes stale,
+restart Chrome, re-enable its browser connection permission and retry.
 
 EXPORT
-Select a source and states, start scraping, select properties, then Download
-Selected. Scraping collects image/document URLs only. With Download Images and
-Notices with Excel checked, Excel is saved first, then files are saved locally.
-Default export folder: %LOCALAPPDATA%\RaahiScraper\Exports
-You can choose another writable output folder in the app.
-Photos are in propertyImageUrls; notice images are in noticeImageUrls.
-Some auctions publish only notices and have no actual property photos.
+Select returned properties, then click Download Selected. Scraping collects
+image/notice URLs only. With Download Images and Notices with Excel checked,
+Excel is saved first and images/notices are downloaded afterward.
+Default output: %LOCALAPPDATA%\RaahiScraper\Exports
+Photos: propertyImageUrls. Notice images: noticeImageUrls.
+Some auctions publish only notices; unpublished photos cannot be scraped.
+Failed attachments produce a warning and can be retried.
 
-WINDOWS ACCEPTANCE TEST
-1. Select only eAuctionsIndia and Tripura + Sikkim as a small first sample.
-2. Confirm normal Chrome is used and no separate browser/profile is created.
-3. Confirm property details, notice URLs and available photo URLs appear in Excel.
-4. Confirm files download only at export, and image/notice files open correctly.
-5. Run another scrape with Chrome and Raahi still open; the auction tab is reused.
-6. Restart Raahi while leaving Chrome and its auction tab open. Allow reconnection
-   if Chrome asks, and confirm the same auction tab is reused.
-7. Test BaankNet and the other required source/state selections.
-8. Check that errors/failed attachments produce a warning and permit retry.
-
-Verification can expire or be invalidated by the website. Raahi waits for manual
-verification and resumes; unpublished photos cannot be provided by the scraper.
-Disconnect Chrome releases the direct connection and leaves Chrome open.
-For extension mode, click Pause in the connector tab, or close that tab.
+ACCEPTANCE TEST
+Start with Tripura and Sikkim, then Gujarat and other required selections.
+Confirm details/URLs in Excel, images/notices open, repeat scrapes reuse Chrome,
+and restart Raahi with the auction tab left open to test session reconnection.
+Website verification can expire or be invalidated and require another manual
+verification. These live Windows checks remain pending.
 
 BUILD EVIDENCE
-windows-packaging-check.json records automated frozen-app validation on Windows:
-GUI initialization, bundled Playwright driver and extension, file locking and
-Excel roundtrip.
-build-info.json and SHA256SUMS.txt identify the source and executable.
-These automated checks do not replace the live client Chrome acceptance test.
+windows-packaging-check.json: frozen GUI, Playwright driver, file lock,
+no-extension setup and Excel roundtrip.
+build-info.json and SHA256SUMS.txt identify the executable and source.

@@ -390,8 +390,7 @@ def _read_page(page, url, callback=None, expected="listing"):
                     page.wait_for_timeout(1000)
                     continue
                 # Initial response may be 403 before the browser completes its challenge.
-                # The extension reads rendered pages and has no HTTP response
-                # object. Keep DOM checks authoritative for that connector.
+                # A missing HTTP status must not bypass rendered-content checks.
                 status = response.status if response and response.status is not None else 200
                 if response and response.status is None:
                     heading = ' '.join(node.get_text(' ', strip=True) for node in soup.select('title, h1'))

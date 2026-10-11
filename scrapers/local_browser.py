@@ -1,7 +1,8 @@
 """Attach to the user's running Chrome after Chrome's own permission prompt.
 
-Chrome 144+ exposes an opt-in DevToolsActivePort endpoint from its existing
-profile. Raahi never launches a second browser, exports cookies, or closes
+Raahi accepts any Chrome version exposing a compatible, approved CDP endpoint.
+The normal-profile opt-in interface is available in Chrome 144+. Raahi never
+launches a second browser, exports cookies, or closes
 Chrome. Browser operations run on one thread so approval/session can be reused
 across states and GUI workers.
 """
@@ -66,10 +67,11 @@ def chrome_data_dir():
 
 
 SETUP_MESSAGE = (
-    "Use Browser Connector Setup to connect your normal Chrome (96+) with the Raahi extension. "
-    "Alternatively, open Google Chrome (144+), go to chrome://inspect/#remote-debugging, "
-    "and enable remote debugging. Then retry Check eAuctionsIndia Browser Access "
-    "and approve Chrome's connection prompt. Raahi will use a tab in that browser."
+    "Chrome has not enabled a browser connection for Raahi. Open Chrome Connection Settings, "
+    "enable Allow remote debugging if the option is available, then click Check eAuctionsIndia "
+    "Browser Access and approve Chrome's prompt. Keep Chrome open under the same Windows account. "
+    "If Chrome has no remote-debugging permission option, update Chrome: that normal-profile "
+    "connection feature was added in Chrome 144. Raahi does not reject browsers by version number."
 )
 
 
@@ -83,13 +85,18 @@ def chrome_endpoint():
         if not 1 <= port <= 65535 or not re.fullmatch(r"/devtools/browser/[A-Za-z0-9-]+", path):
             raise ValueError("invalid endpoint")
         return f"ws://127.0.0.1:{port}{path}"
+    except FileNotFoundError as exc:
+        raise RuntimeError("Chrome connection permission was not found. " + SETUP_MESSAGE) from exc
+    except PermissionError as exc:
+        raise RuntimeError("Chrome's connection file could not be read. Run Chrome and Raahi "
+                           "under the same Windows account. " + SETUP_MESSAGE) from exc
     except (OSError, ValueError) as exc:
-        raise RuntimeError(SETUP_MESSAGE) from exc
+        raise RuntimeError("Chrome's connection file is invalid or unavailable. " + SETUP_MESSAGE) from exc
 
 
 def open_chrome_setup(url='chrome://inspect/#remote-debugging'):
     """Open a setup tab in ordinary Chrome, without a new profile/debug flags."""
-    if url not in ('chrome://inspect/#remote-debugging', 'chrome://extensions/'):
+    if url != 'chrome://inspect/#remote-debugging':
         raise ValueError('Unsupported Chrome setup page')
     if sys.platform == "darwin":
         subprocess.Popen(["open", "-a", "Google Chrome", url])
@@ -174,15 +181,16 @@ class _ChromeSession:
                 chrome_endpoint(), no_defaults=True, timeout=180000,
                 headers={"User-Agent": "RaahiScraper"},
             )
-            if int(self.browser.version.split(".")[0]) < 144:
-                raise RuntimeError("Existing-browser mode requires Chrome 144 or newer.")
             context = self.browser.contexts[0]
             self.page = _existing_auction_tab(context) or context.new_page()
             self.page.set_default_timeout(60000)
         except Exception as exc:
             self.driver.stop()
             self.driver = self.browser = self.page = None
-            raise RuntimeError("Could not attach to your existing Chrome. " + SETUP_MESSAGE) from exc
+            if isinstance(exc, RuntimeError) and SETUP_MESSAGE in str(exc):
+                raise
+            raise RuntimeError("Chrome could not establish the connection. Approve its connection prompt "
+                "or re-enable its permission after restarting Chrome, then retry. " + SETUP_MESSAGE) from exc
 
     def _run(self):
         while True:
@@ -199,6 +207,9 @@ class _ChromeSession:
                 if method == "ensure":
                     self._connect()
                     future.set_result(None)
+                    continue
+                if method == "connected":
+                    future.set_result(self.browser is not None and self.browser.is_connected())
                     continue
                 if self.page is None:
                     raise RuntimeError("Connect to Chrome first. " + SETUP_MESSAGE)
@@ -292,9 +303,8 @@ def fetch_chrome_attachment(url):
         'www.eauctionsindia.com', 'eauctionsindia.com', 'www.eauctionsindia.org', 'eauctionsindia.org'
     ) or not parsed.path.startswith('/storage/'):
         raise ValueError('Chrome attachment access is limited to eAuctionsIndia storage URLs.')
-    from .extension_bridge import connected_bridge
     with _session_lock:
-        session = connected_bridge() or _session
+        session = _session
     if session is None:
         raise RuntimeError('Connect to Chrome before downloading protected eAuctionsIndia images.')
     session.invoke('ensure')
@@ -316,12 +326,9 @@ atexit.register(_stop_session)
 
 def browser_ready():
     """Check prerequisites before queuing scrape tasks or opening auction pages."""
-    from .extension_bridge import start_bridge, connected_bridge
-    try:
-        start_bridge()
-    except RuntimeError:
-        pass  # The direct Chrome connector may still be usable.
-    if connected_bridge() is not None:
+    with _session_lock:
+        session = _session
+    if session is not None and not session.closed and session.invoke('connected'):
         return True
     try:
         chrome_endpoint()
@@ -334,18 +341,10 @@ def browser_ready():
 def desktop_browser(playwright, start_url):
     """Yield a tab in the existing Chrome; retain the approved app connection."""
     global _session
-    from .extension_bridge import connected_bridge
-    extension = connected_bridge()
-    if extension is None:
-        # Validate before starting a background connection attempt.
-        chrome_endpoint()
     with _profile_lock(browser_profile()):
-        if extension is not None:
-            extension.invoke('ensure')
-            yield ChromePage(extension)
-            return
         with _session_lock:
             if _session is None or _session.closed:
+                chrome_endpoint()
                 _session = _ChromeSession()
             session = _session
         session.invoke("ensure")

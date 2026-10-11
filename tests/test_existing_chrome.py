@@ -34,10 +34,45 @@ class ExistingChromeTests(unittest.TestCase):
 
     def test_missing_permission_never_launches_another_browser(self):
         with TemporaryDirectory() as folder, patch.dict('os.environ', {'EAUCTIONSINDIA_CHROME_DATA_DIR': folder}), patch.object(browser.subprocess, 'Popen') as launch:
-            with self.assertRaisesRegex(RuntimeError, 'Browser Connector Setup'):
+            with self.assertRaisesRegex(RuntimeError, 'Chrome connection permission was not found'):
                 with browser.desktop_browser(None, 'https://www.eauctionsindia.com'):
                     pass
             launch.assert_not_called()
+
+    def test_any_version_with_a_compatible_endpoint_is_accepted(self):
+        for version in ['96.0.0.0', '134.0.0.0', '143.0.0.0', '154.0.0.0', 'unknown']:
+            with self.subTest(version=version):
+                page = Mock()
+                page.is_closed.return_value = False
+                context = Mock(pages=[])
+                context.new_page.return_value = page
+                chrome = Mock(version=version, contexts=[context])
+                chrome.is_connected.return_value = True
+                driver = Mock()
+                driver.chromium.connect_over_cdp.return_value = chrome
+                with patch('playwright.sync_api.sync_playwright', return_value=SimpleNamespace(start=lambda: driver)), patch.object(browser, 'chrome_endpoint', return_value='ws://127.0.0.1:61545/devtools/browser/test'):
+                    session = browser._ChromeSession()
+                    try:
+                        session.invoke('ensure')
+                        self.assertTrue(session.invoke('connected'))
+                        driver.chromium.launch.assert_not_called()
+                    finally:
+                        session.stop()
+
+    def test_cached_browser_does_not_require_reopening_or_rereading_endpoint(self):
+        session = Mock(closed=False)
+        session.invoke.return_value = True
+        with patch.object(browser, '_session', session), patch.object(browser, 'chrome_endpoint', side_effect=RuntimeError('missing endpoint')) as endpoint:
+            self.assertTrue(browser.browser_ready())
+            with browser.desktop_browser(None, 'https://www.eauctionsindia.com') as page:
+                self.assertIs(page.session, session)
+            endpoint.assert_not_called()
+
+    def test_connection_permission_errors_are_distinguishable(self):
+        for error, message in [(PermissionError(), 'could not be read'), (OSError(), 'invalid or unavailable')]:
+            with patch.object(Path, 'read_text', side_effect=error):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    browser.chrome_endpoint()
 
     def test_session_reuses_connection_and_disconnect_preserves_chrome(self):
         page = Mock()

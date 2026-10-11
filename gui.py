@@ -14,7 +14,6 @@ from scraper_runner import collect_new_items, mark_items_seen, save_items_to_exc
 from seen_db import seen_db
 from scrapers.eauctionsindia import check_access
 from scrapers.local_browser import open_chrome_setup, disconnect_chrome, fetch_chrome_attachment, browser_ready
-from scrapers.extension_bridge import start_bridge, prepare_extension
 
 
 class ScraperGUI:
@@ -37,10 +36,6 @@ class ScraperGUI:
         self.main_thread = threading.current_thread()
         
         self.setup_ui()
-        try:
-            start_bridge()
-        except RuntimeError as exc:
-            self.update_status(str(exc))
         
     def setup_ui(self):
         """Setup the user interface"""
@@ -158,12 +153,10 @@ class ScraperGUI:
         eauction_frame.pack(pady=(8, 10), padx=10, fill="x")
         ctk.CTkLabel(
             eauction_frame,
-            text="eAuctionsIndia uses your normal Chrome: Browser Connector extension (Chrome 96+) "
-                 "or direct connection (Chrome 144+).\nComplete any human verification in the auction tab; scraping then resumes.",
+            text="eAuctionsIndia uses your normal Google Chrome. Enable its browser connection permission once.\n"
+                 "Complete any human verification in the auction tab; scraping then resumes.",
             font=ctk.CTkFont(size=12), wraplength=760, justify="left"
         ).pack(pady=8, padx=8, anchor="w")
-        ctk.CTkButton(eauction_frame, text="Browser Connector Setup (Chrome 96+)",
-                      command=self.open_browser_connector_setup).pack(pady=4, padx=8, anchor="w")
         ctk.CTkButton(
             eauction_frame, text="Open Chrome Connection Settings",
             command=self.open_chrome_connection_settings,
@@ -430,44 +423,14 @@ class ScraperGUI:
             cb.pack(pady=2, padx=5, fill="x")
             self.property_check_vars.append((var, item))
     
-    def open_browser_connector_setup(self):
-        try:
-            folder, key = prepare_extension()
-            window = ctk.CTkToplevel(self.root)
-            window.title('Raahi Browser Connector Setup')
-            window.geometry('740x510')
-            ctk.CTkLabel(window, text='Connect your normal Chrome once', font=ctk.CTkFont(size=20, weight='bold')).pack(pady=14)
-            ctk.CTkLabel(window, text='1. In chrome://extensions, enable Developer mode.\n'
-                '2. Click Load unpacked and select the folder below.\n'
-                '3. Click the Raahi extension icon to open its connector tab.\n'
-                '4. Paste the pairing code and click Connect.\n'
-                '5. Keep the connector tab open. Return here and start scraping.\n\n'
-                'Cloudflare verification is completed manually in the auction tab.\n'
-                'The extension remembers pairing on this Windows account.\n'
-                'Chrome 96+ with extensions permitted is required.', justify='left', wraplength=680).pack(padx=20, pady=8)
-            def copy(value):
-                self.root.clipboard_clear()
-                self.root.clipboard_append(value)
-            folder_entry = ctk.CTkEntry(window, width=670)
-            folder_entry.insert(0, str(folder))
-            folder_entry.configure(state='readonly')
-            folder_entry.pack(pady=4)
-            ctk.CTkButton(window, text='Copy extension folder path', command=lambda: copy(str(folder))).pack(pady=4)
-            ctk.CTkButton(window, text='Copy pairing code', command=lambda: copy(key)).pack(pady=4)
-            ctk.CTkButton(window, text='Open Chrome extensions', command=lambda: open_chrome_setup('chrome://extensions/')).pack(pady=4)
-            ctk.CTkButton(window, text='Check browser access after connecting', command=lambda: (window.destroy(), self.check_eauctions_access())).pack(pady=4)
-            window.after(200, window.lift)
-            open_chrome_setup('chrome://extensions/')
-        except Exception as exc:
-            messagebox.showerror('Browser Connector Setup', str(exc))
-
     def open_chrome_connection_settings(self):
         try:
             open_chrome_setup()
             messagebox.showinfo(
                 "Connect your Chrome",
-                "In Chrome, enable remote debugging, then click Check eAuctionsIndia Browser Access here. "
-                "Approve the connection prompt in Chrome.\n\n"
+                "In Chrome, enable Allow remote debugging, then click Check eAuctionsIndia Browser Access here. "
+                "Approve the connection prompt in Chrome. If this option is missing, update Chrome: "
+                "its normal-profile permission feature is available from Chrome 144.\n\n"
                 "Chrome grants access to this browser profile. Raahi uses its own auction tab; "
                 "it does not export your cookies or navigate your other tabs. "
                 "Disconnect Chrome here when finished, or disable remote debugging in Chrome. "
@@ -481,13 +444,13 @@ class ScraperGUI:
             messagebox.showwarning("Chrome", "Wait for the current scrape or access check to finish before disconnecting.")
             return
         disconnect_chrome()
-        self.update_status("Direct Chrome connection disconnected. Extension mode: click Pause in its connector tab. Chrome stays open.")
+        self.update_status("Chrome connection disconnected. Your browser and tabs stay open.")
 
     def check_eauctions_access(self):
         if self.is_scraping or self.is_checking_access or self.is_downloading:
             return
         if not browser_ready():
-            self.open_browser_connector_setup()
+            self.open_chrome_connection_settings()
             return
         self.is_checking_access = True
         self.eauctions_access_btn.configure(state="disabled")
@@ -535,8 +498,8 @@ class ScraperGUI:
             return
 
         if 'eauctionsindia' in selected_sites and not browser_ready():
-            self.update_status('Connect Chrome using Browser Connector Setup, then click Start Scraping again.')
-            self.open_browser_connector_setup()
+            self.update_status('Enable Chrome connection permission, then click Start Scraping again.')
+            self.open_chrome_connection_settings()
             return
 
         # Clear log

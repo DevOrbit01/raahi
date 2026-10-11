@@ -27,7 +27,6 @@ def run_packaging_check(report_path):
         from playwright.sync_api import sync_playwright
         from scraper_runner import save_items_to_excel
         from scrapers.local_browser import _profile_lock
-        from scrapers.extension_bridge import prepare_extension
         report['checks']['per_user_paths'] = {
             'app_data': application_data_dir(), 'exports': default_output_folder(),
         }
@@ -41,11 +40,8 @@ def run_packaging_check(report_path):
         assert app.output_folder == default_output_folder()
         assert app.eauctions_access_btn.winfo_exists()
         report['checks']['gui_initialized'] = True
-        extension_folder, _ = prepare_extension()
-        manifest = json.loads((extension_folder/'manifest.json').read_text(encoding='utf-8'))
-        assert manifest['minimum_chrome_version'] == '96'
-        assert (extension_folder/'connector.js').is_file()
-        report['checks']['bundled_browser_extension'] = True
+        assert not hasattr(app, 'open_browser_connector_setup')
+        report['checks']['no_browser_extension_required'] = True
         with TemporaryDirectory() as folder:
             with _profile_lock(Path(folder)/'test-profile'):
                 report['checks']['platform_file_lock'] = True
