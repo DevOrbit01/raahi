@@ -390,7 +390,13 @@ def _read_page(page, url, callback=None, expected="listing"):
                     page.wait_for_timeout(1000)
                     continue
                 # Initial response may be 403 before the browser completes its challenge.
-                status = response.status if response else 200
+                # The extension reads rendered pages and has no HTTP response
+                # object. Keep DOM checks authoritative for that connector.
+                status = response.status if response and response.status is not None else 200
+                if response and response.status is None:
+                    heading = ' '.join(node.get_text(' ', strip=True) for node in soup.select('title, h1'))
+                    if re.search(r'\b404\b.*(?:not found|page)', heading, re.I):
+                        status = 404
                 if expected == "detail":
                     ready = bool(re.search(r"Auction\s*ID", soup.get_text(" ", strip=True), re.I) and soup.select_one("h1, .item-det"))
                 elif expected == "listing":

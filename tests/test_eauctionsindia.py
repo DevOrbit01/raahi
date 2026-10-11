@@ -91,6 +91,14 @@ class EAuctionsTests(unittest.TestCase):
         self.assertIn(1000, page.waits)
         self.assertTrue(any("verification" in message for message in messages))
 
+    def test_extension_unknown_http_status_waits_for_dom_and_detects_404(self):
+        page = BrowserPage(['<h1>Loading</h1>', DETAIL_HTML], status=None)
+        self.assertEqual(e._read_page(page, DETAIL_URL, expected='detail'), DETAIL_HTML)
+        self.assertIn(500, page.waits)
+        page = BrowserPage(['<title>404 | Not Found</title>'], status=None)
+        with self.assertRaises(e.CatalogueUnavailable):
+            e._read_page(page, e.BASE_URL + '/properties-in-ladakh')
+
     def test_normal_page_with_cloudflare_scripts_is_not_a_challenge(self):
         self.assertFalse(e._looks_blocked(DETAIL_HTML + '<script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>'))
 
