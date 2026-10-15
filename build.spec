@@ -2,14 +2,14 @@
 
 block_cipher = None
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
-    datas=collect_data_files('customtkinter'),
-    hiddenimports=[
+    datas=collect_data_files('customtkinter') + collect_data_files('cloakbrowser'),
+    hiddenimports=collect_submodules('cloakbrowser') + [
         'customtkinter',
         'PIL',
         'PIL._tkinter_finder',
@@ -17,10 +17,20 @@ a = Analysis(
         'requests',
         'bs4',
         'urllib3',
+        'cloudscraper',
+        'playwright',
+        'playwright.sync_api',
+        'requests_toolbelt',
+        'app_paths',
+        'packaging_check',
         'scrapers.baanknet',
         'scrapers.baanknet_ibc',
         'scrapers.baanknet_vehicle',
         'scrapers.baanknet_property',
+        'scrapers.eauctionsindia',
+        'scrapers.local_browser',
+        'scrapers.scrape_progress',
+        'sqlite3',
         'scrapers.bankauctions',
         'scrapers.bankauction',
     ],

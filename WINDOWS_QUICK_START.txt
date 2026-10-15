@@ -1,0 +1,47 @@
+RAAHI PROPERTY SCRAPER — WINDOWS x64 TEST BUILD
+
+Windows 10/11 x64. Python, a Chrome extension, and Chrome debugging permission
+are not needed for eAuctionsIndia. The app uses a dedicated CloakBrowser profile.
+This executable is unsigned. Its browser binary is not included in the ZIP.
+
+FIRST RUN
+1. Extract the entire ZIP, then run RaahiScraper.exe under your normal Windows
+   account. Allow the app to use the network.
+2. Select eAuctionsIndia and one small state (for example Tripura) first. Use
+   Deselect All for sites and states, then tick the ones you want.
+3. Click Check eAuctionsIndia Browser Access, then Start Scraping.
+4. On first use, CloakBrowser downloads its free browser build from CloakHQ to
+   your Windows user profile. This may take several minutes and hundreds of MB.
+   The app does not bundle, copy, or redistribute that proprietary binary.
+5. The scraper starts headless. If the website requires human verification and
+   automatic verification does not finish, Raahi opens its visible auction
+   browser. Complete the prompt there; Raahi resumes automatically.
+
+SUBSEQUENT RUNS
+Raahi reuses its persistent CloakBrowser profile and its valid site session.
+The browser window usually stays hidden. Cloudflare or the site can require
+verification again at any time; no browser can guarantee zero prompts.
+
+EXCEL, PHOTOS, AND NOTICES
+Scraping stores property data and attachment URLs only. Select properties and
+click Download Selected. With Download Images and Notices with Excel checked,
+Raahi writes Excel first, then saves images/<auction ID>/ and
+documents/<auction ID>/ alongside it. The default output folder is:
+%LOCALAPPDATA%\RaahiScraper\Exports
+
+The spreadsheet separates propertyImageUrls from noticeImageUrls. Some listings
+publish only a sale notice or PDF and no property photos. Failed downloads are
+reported and can be retried; properties with missing attachments are not marked
+downloaded.
+
+CLIENT ACCEPTANCE
+After the test build starts, check Tripura and Sikkim first, then your intended
+larger states. Open the Excel rows, JPG/WebP property photos, sale-notice images
+and PDFs. Restart the app and repeat to check saved-session reuse. Live use on
+your client's Windows network and PC is still necessary before declaring the
+app production-ready.
+
+BUILD EVIDENCE
+windows-packaging-check.json: frozen GUI, CloakBrowser wrapper, Playwright
+driver, file lock, no bundled browser binary, and Excel roundtrip.
+build-info.json and SHA256SUMS.txt identify the executable and source.
