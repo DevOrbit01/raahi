@@ -1,0 +1,42 @@
+name: Audit existing Windows release history
+on:
+  push:
+    branches: ['audit/windows-history-20261015']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Retrieve exact previously delivered EXE
+        uses: actions/download-artifact@v7
+        with:
+          name: RaahiScraper-Windows-x64
+          run-id: 38170653391
+          github-token: ${{ github.token }}
+          path: shipped-release
+      - name: Install audit dependencies
+        run: python -m pip install -r requirements-build.txt
+      - name: Test native EXE and history across separate Windows processes
+        run: python packaging/windows-history-audit.py --exe shipped-release/RaahiScraper.exe --root audit-results
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Windows-existing-release-history-audit
+          path: audit-results/*.json
+          if-no-files-found: warn
+          retention-days: 14
