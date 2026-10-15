@@ -142,6 +142,7 @@ def run_single_scraper(scraper_func, state, scraper_name, status_callback=None):
             'state': state,
             'scraperName': scraper_name,
             'items': items,
+            'warnings': list(getattr(items, 'warnings', [])),
             'error': None
         }
     except Exception as e:
@@ -151,6 +152,7 @@ def run_single_scraper(scraper_func, state, scraper_name, status_callback=None):
             'state': state,
             'scraperName': scraper_name,
             'items': getattr(e, 'items', []),
+            'warnings': list(getattr(e, 'warnings', [])),
             'error': None if getattr(e, 'skipped', False) else str(e),
             'skipped': bool(getattr(e, 'skipped', False)),
             'warning': str(e) if getattr(e, 'skipped', False) else None,
@@ -393,15 +395,21 @@ def collect_new_items(selected_states=None, selected_sites=None, progress_callba
         raise RuntimeError(f"All scraper tasks failed. {details}")
 
     if run_details is not None:
+        warnings = [
+            warning for result in results for warning in result.get('warnings', [])
+        ]
+        skipped_properties = len(warnings)
+        warnings.extend(result['warning'] for result in results if result.get('warning'))
         run_details.update({
             'failed_tasks': fail_count,
             'skipped_tasks': skipped_count,
+            'skipped_properties': skipped_properties,
             'total_tasks': len(tasks),
             'errors': [
                 f"{result['scraperName']} ({result['state']}): {result['error']}"
                 for result in results if result['error']
             ],
-            'warnings': [result['warning'] for result in results if result.get('warning')],
+            'warnings': warnings,
         })
     
     summary = f"""

@@ -48,6 +48,16 @@ class ScrapeProgress:
         with self.db:
             self.db.execute("INSERT OR REPLACE INTO items VALUES (?, ?)", (url, json.dumps(item)))
 
+    def skip_detail(self, url, reason):
+        """Retain a warning for this run without treating the listing as exported."""
+        with self.db:
+            skipped = self.skipped_details()
+            skipped[url] = reason
+            self._set("skipped_details", skipped)
+
+    def skipped_details(self):
+        return self.get("skipped_details", {})
+
     def advance(self, next_url):
         with self.db:
             roots = self.get("remaining_roots", [])

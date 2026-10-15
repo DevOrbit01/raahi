@@ -65,6 +65,51 @@ def run_packaging_check(report_path):
             assert 'listingId' in [cell.value for cell in workbook.active[1]]
             workbook.close()
             report['checks']['excel_roundtrip'] = True
+
+            # Exercise the browser scraper from inside the frozen executable,
+            # with deterministic pages and no live website dependency.
+            from contextlib import nullcontext
+            from types import SimpleNamespace
+            from unittest.mock import patch
+            from scrapers import eauctionsindia
+            import gui
+            first = eauctionsindia._listing_urls('Delhi', 1)[0]
+            second = eauctionsindia._listing_urls('Delhi', 2)[0]
+            missing = eauctionsindia.BASE_URL + '/properties/1'
+            valid = eauctionsindia.BASE_URL + '/properties/2'
+            pages = {
+                first: (f'<a href="{missing}">Missing date</a>'
+                        f'<ul class="pagination"><a href="{second}" rel="next">Next</a></ul>'),
+                second: f'<a href="{valid}">Valid auction</a>',
+                missing: '<h1>Incomplete auction</h1><p>Auction ID: 1</p>',
+                valid: ('<h1>Complete auction</h1><p>Auction ID: 2</p>'
+                        '<div><strong>Province/State:</strong>Delhi</div>'
+                        '<div><strong>Auction Start Date:</strong>20-11-2026 12:00 PM</div>'),
+            }
+            with patch.dict('os.environ', {
+                'EAUCTIONSINDIA_BROWSER_BACKEND': 'cloak',
+                'EAUCTIONSINDIA_BROWSER_PROFILE': str(Path(folder) / 'skip-test'),
+            }), patch.object(eauctionsindia, 'desktop_browser', return_value=nullcontext(
+                SimpleNamespace(wait_for_timeout=lambda delay: None)
+            )), patch.object(eauctionsindia, '_read_page', side_effect=lambda page, url, *a, **kw: pages[url]):
+                items = eauctionsindia.scrape('Delhi')
+            assert [item['listingId'] for item in items] == ['2']
+            assert len(items.warnings) == 1 and missing in items.warnings[0]
+            report['checks']['missing_date_continues_pagination'] = True
+
+            def checked_items(*args, **kwargs):
+                kwargs['run_details'].update({
+                    'failed_tasks': 0, 'skipped_tasks': 0, 'skipped_properties': 1,
+                    'errors': [], 'warnings': items.warnings,
+                })
+                return items
+
+            with patch.object(gui, 'collect_new_items', side_effect=checked_items):
+                app.run_scraping_thread(['Delhi'], ['eauctionsindia'])
+            app.root.update()
+            assert '1 incomplete listings skipped' in app.status_label.cget('text')
+            assert missing in app.log_text.get('1.0', 'end')
+            report['checks']['gui_displays_skipped_listing_warning'] = True
         report['passed'] = True
     except Exception:
         report['error'] = traceback.format_exc()

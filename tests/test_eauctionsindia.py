@@ -191,6 +191,92 @@ class EAuctionsTests(unittest.TestCase):
             self.assertEqual(progress.items(), [])
             progress.close()
 
+    def test_missing_date_skips_listing_continues_pagination_and_rechecks_next_run(self):
+        missing_url = e.BASE_URL + '/properties/896731'
+        second_detail = e.BASE_URL + '/properties/891315'
+        first_page = e._listing_urls('Delhi', 1)[0]
+        second_page = e._listing_urls('Delhi', 2)[0]
+        listing = (f'<a href="{DETAIL_URL}">One</a><a href="{missing_url}">Missing date</a>'
+                   f'<ul class="pagination"><a rel="next" href="{second_page}">Next</a></ul>')
+        missing_html = '<h1>Car Auction</h1><p>Auction ID: 896731</p>'
+        corrected = [False]
+        calls = []
+
+        def read(page, url, callback=None, expected='listing'):
+            calls.append(url)
+            if url == first_page:
+                return listing
+            if url == second_page:
+                return f'<a href="{second_detail}">Two</a>'
+            if url == missing_url and not corrected[0]:
+                return missing_html
+            return DETAIL_HTML.replace('891314', url.rsplit('/', 1)[-1])
+
+        @contextlib.contextmanager
+        def browser(*args):
+            yield BrowserPage([])
+
+        with TemporaryDirectory() as folder, patch.dict('os.environ', {
+            'EAUCTIONSINDIA_BROWSER_PROFILE': folder + '/browser',
+            'EAUCTIONSINDIA_BROWSER_BACKEND': 'cloak',
+        }), patch.object(e, 'desktop_browser', browser), patch.object(e, '_read_page', read), \
+                patch.object(scraper_runner, 'seen_db', SeenDatabase(str(Path(folder) / 'seen.json'))):
+            details = {}
+            items = scraper_runner.collect_new_items(['Delhi'], ['eauctionsindia'], run_details=details)
+            self.assertEqual({item['listingId'] for item in items}, {'891314', '891315'})
+            self.assertIn(second_page, calls)
+            self.assertEqual(details['failed_tasks'], 0)
+            self.assertEqual(details['skipped_properties'], 1)
+            self.assertEqual(len(details['warnings']), 1)
+            self.assertIn(missing_url, details['warnings'][0])
+            self.assertIn('missing auction date', details['warnings'][0])
+            self.assertFalse((Path(folder) / 'seen.json').exists())
+            corrected[0] = True
+            items = e.scrape('Delhi')
+            self.assertEqual({item['listingId'] for item in items}, {'891314', '891315', '896731'})
+            self.assertEqual(items.warnings, [])
+            self.assertEqual(calls.count(missing_url), 2)
+
+    def test_skipped_listing_warning_survives_later_page_failure_and_resume(self):
+        missing_url = e.BASE_URL + '/properties/896731'
+        second_detail = e.BASE_URL + '/properties/891315'
+        first_page = e._listing_urls('Delhi', 1)[0]
+        second_page = e._listing_urls('Delhi', 2)[0]
+        calls = []
+        fail_second_page = [True]
+
+        def read(page, url, callback=None, expected='listing'):
+            calls.append(url)
+            if url == first_page:
+                return (f'<a href="{missing_url}">Missing date</a><a href="{DETAIL_URL}">One</a>'
+                        f'<ul class="pagination"><a rel="next" href="{second_page}">Next</a></ul>')
+            if url == second_page:
+                if fail_second_page[0]:
+                    raise RuntimeError('temporary network failure')
+                return f'<a href="{second_detail}">Two</a>'
+            if url == missing_url:
+                return '<h1>Car Auction</h1><p>Auction ID: 896731</p>'
+            return DETAIL_HTML.replace('891314', url.rsplit('/', 1)[-1])
+
+        @contextlib.contextmanager
+        def browser(*args):
+            yield BrowserPage([])
+
+        with TemporaryDirectory() as folder, patch.dict('os.environ', {
+            'EAUCTIONSINDIA_BROWSER_PROFILE': folder + '/browser',
+            'EAUCTIONSINDIA_BROWSER_BACKEND': 'cloak',
+        }), patch.object(e, 'desktop_browser', browser), patch.object(e, '_read_page', read):
+            with self.assertRaises(e.IncompleteScrapeError) as failed:
+                e.scrape('Delhi')
+            self.assertEqual(len(failed.exception.items), 1)
+            self.assertEqual(len(failed.exception.warnings), 1)
+            fail_second_page[0] = False
+            items = e.scrape('Delhi')
+            self.assertEqual({item['listingId'] for item in items}, {'891314', '891315'})
+            self.assertEqual(len(items.warnings), 1)
+            self.assertEqual(calls.count(missing_url), 1)
+            self.assertEqual(calls.count(DETAIL_URL), 1)
+
     def test_partial_rows_reach_runner_with_failure_details(self):
         item = e._parse_detail_html(DETAIL_HTML, DETAIL_URL, "Delhi")
         with TemporaryDirectory() as folder, patch.object(scraper_runner, "seen_db", SeenDatabase(str(Path(folder) / "seen.json"))), patch.object(e, "scrape", side_effect=e.IncompleteScrapeError("one detail failed", [item])):

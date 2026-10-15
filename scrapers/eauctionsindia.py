@@ -355,6 +355,28 @@ class IncompleteScrapeError(RuntimeError):
     def __init__(self, message, items):
         super().__init__(message)
         self.items = items
+        self.warnings = getattr(items, 'warnings', [])
+
+
+class IncompleteListingError(RuntimeError):
+    """A loaded listing lacks required source data and can be skipped."""
+
+
+class ScrapeResult(list):
+    def __init__(self, items=(), warnings=()):
+        super().__init__(items)
+        self.warnings = list(warnings)
+
+
+def _saved_result(progress, state):
+    if progress is None:
+        return ScrapeResult()
+    warnings = [
+        f"eAuctionsIndia ({state}): skipped {url}: {reason} "
+        "This listing was not exported and will be checked again on a fresh scrape."
+        for url, reason in progress.skipped_details().items()
+    ]
+    return ScrapeResult(progress.items(), warnings)
 
 
 _browser_lock = threading.Lock()
@@ -459,8 +481,11 @@ def _next_listing_url(soup, current_url):
 
 
 def _validate_item(item, state):
-    if not item.get("name") or not item.get("date") or not item.get("listingId"):
-        raise RuntimeError("Auction detail is missing its title, ID or auction date; refusing to export an incomplete row.")
+    missing = [label for field, label in (
+        ("name", "title"), ("listingId", "auction ID"), ("date", "auction date")
+    ) if not str(item.get(field) or '').strip()]
+    if missing:
+        raise IncompleteListingError(f"Auction detail is missing {', '.join(missing)}.")
     # Never label an unfiltered search result as the requested state.
     actual = _normalize_label(item.get("state", ""))
     requested = _normalize_label(state)
@@ -508,7 +533,8 @@ def _scrape_with_playwright(state, progress_callback=None):
                     links = _extract_listing_links(soup)
                     next_url = _next_listing_url(soup, page_url)
                     progress.set_page(page_url, links, next_url)
-                    new_links = [url for url in links if not progress.contains(url)]
+                    skipped_details = progress.skipped_details()
+                    new_links = [url for url in links if not progress.contains(url) and url not in skipped_details]
                     if links and not new_links and not progress.resumed:
                         raise RuntimeError("The website repeated the previous page's auctions; saved progress is retained.")
                     failures = []
@@ -522,6 +548,9 @@ def _scrape_with_playwright(state, progress_callback=None):
                             page.wait_for_timeout(int(REQUEST_DELAY * 1000))
                         except VerificationRequired:
                             raise
+                        except IncompleteListingError as exc:
+                            progress.skip_detail(detail_url, str(exc))
+                            _emit(progress_callback, f"Warning: skipped {detail_url}: {exc} Continuing with the remaining listings.")
                         except Exception as exc:
                             failures.append(f"{detail_url}: {exc}")
                             _emit(progress_callback, f"Detail failed: {detail_url}. It will be retried on the next run.")
@@ -531,16 +560,16 @@ def _scrape_with_playwright(state, progress_callback=None):
                     pages_this_run += 1
                     if next_url and pages_this_run >= MAX_PAGES:
                         raise RuntimeError(f"Reached the configured {MAX_PAGES}-page limit. Run again to resume the remaining pages.")
-        items = progress.items()
-        _emit(progress_callback, f"Finished {state}: {len(items)} properties, {progress.get('pages_done')} listing pages.")
+        items = _saved_result(progress, state)
+        _emit(progress_callback, f"Finished {state}: {len(items)} properties, {progress.get('pages_done')} listing pages, {len(items.warnings)} incomplete listings skipped.")
         return items
     except CatalogueUnavailable as exc:
         if progress is not None and not progress.items() and progress.get('pages_done', 0) == 0:
             _emit(progress_callback, f"{state} is unavailable on eAuctionsIndia; this selection is skipped.")
             raise
-        raise IncompleteScrapeError(str(exc), progress.items() if progress is not None else []) from exc
+        raise IncompleteScrapeError(str(exc), _saved_result(progress, state)) from exc
     except Exception as exc:
-        raise IncompleteScrapeError(str(exc), progress.items() if progress is not None else []) from exc
+        raise IncompleteScrapeError(str(exc), _saved_result(progress, state)) from exc
     finally:
         if progress is not None:
             progress.close()

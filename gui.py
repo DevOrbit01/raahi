@@ -550,10 +550,11 @@ class ScraperGUI:
             )
             
             self.log(f"Scraped items count: {len(self.scraped_items)}")
-            if run_details.get('failed_tasks') or run_details.get('skipped_tasks'):
+            if run_details.get('failed_tasks') or run_details.get('skipped_tasks') or run_details.get('warnings'):
                 self.update_status(
                     f"⚠️ Scraping completed: {run_details['failed_tasks']} failed tasks, "
                     f"{run_details.get('skipped_tasks', 0)} unavailable catalogues. "
+                    f"{run_details.get('skipped_properties', 0)} incomplete listings skipped. "
                     "Check the activity log before downloading."
                 )
                 for error in run_details['errors']:
